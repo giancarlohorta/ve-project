@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Excel to JSON - Filter Column</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <h1>Upload Excel File and Convert to JSON</h1>
+    <input type="file" id="upload" accept=".xlsx, .xls" />
+    <button id="download" style="display: none">Download Excel</button>
+    <h2>Filtered JSON (Column: "Mensagem")</h2>
+    <pre id="output"></pre>
+
+    <script>
+      function extractFieldValue(text, fieldName) {
+        const regex = new RegExp(`(?<=${fieldName}:\\s).*?(?=\\r?\\n)`, "i");
+        const match = text.match(regex);
+        return match ? match[0].trim() : null;
+      }
+
+      document.getElementById("upload").addEventListener("change", (event) => {
+        const file = event.target.files[0];
+
+        if (file) {
+          const reader = new FileReader();
+
+          reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet);
+
+            const filtered = json.map((row) => row["Mensagem"]).filter(Boolean);
+
+            const extractedFirstNames = filtered
+              .map((message) => {
+                const fields = [
+                  "First Name",
+                  "Last Name",
+                  "Email Address",
+                  "Country",
+                  "State",
+                  "Postal Code",
+                  "Telephone",
+                  "City",
+                  "Job/Role",
+                  "Correction Service",
+                ];
+
+                const extractedData = {};
+
+                fields.forEach((field) => {
+                  extractedData[field] = extractFieldValue(message, field);
+                });
+
+                return extractedData;
+              })
+              .filter(Boolean);
+
+            document.getElementById("output").textContent = JSON.stringify(
+              extractedFirstNames,
+              null,
+              2
+            );
+
+            // Cria o Excel para download
+            const resultSheet = XLSX.utils.json_to_sheet(extractedFirstNames);
+            const resultWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(
+              resultWorkbook,
+              resultSheet,
+              "Filtered Data"
+            );
+
+            // Configura o botão de download
+            const button = document.getElementById("download");
+            button.style.display = "block";
+            button.onclick = () => {
+              XLSX.writeFile(resultWorkbook, "FilteredData.xlsx");
+            };
+          };
+
+          reader.readAsArrayBuffer(file);
+        }
+      });
+    </script>
+  </body>
+</html>
